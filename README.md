@@ -3,6 +3,25 @@
 
 Yes. Yes, it is. So here are some...
 
+# Apple JIS キーボード向けフォーク
+
+このフォークは、Apple 日本語（JIS）キーボードを Linux で使用するユーザー向けに、タブ切り替えショートカットを修正したものです。
+
+## 変更内容
+
+macOS の `Cmd+Shift+[` / `Cmd+Shift+]`（前のタブ / 次のタブ）に対応するキーバインドを、JIS 配列に合わせて修正しています。
+
+- **前のタブ**: `Shift-RC-Left_Brace` → `Shift-RC-Right_Brace`
+- **次のタブ**: `Shift-RC-Right_Brace` → `Shift-RC-Backslash`
+
+## 技術的背景
+
+US 配列では `[` と `]` はそれぞれ独立したキーですが、JIS 配列ではこれらのキーの物理位置が異なります。Linux の evdev では、JIS キーボードの `[` キーは `Right_Brace`（keycode 27）、`]` キーは `Backslash`（keycode 43）として認識されます。そのため、オリジナルの Toshy が使用する `Left_Brace`（keycode 26）ベースのバインドは JIS キーボードでは機能しません。
+
+このフォークでは、上記 11 箇所のタブ切り替えバインドを JIS 配列の evdev キーコードに合わせて修正しています。
+
+---
+
 # ... Quick Links!
 
 _(See top-right icon here on GitHub for full README table of contents)_

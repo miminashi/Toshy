@@ -3636,8 +3636,8 @@ hmp_is_jdownloader              = lambda ctx: any(c(ctx) for c in _jdownloader_c
 keymap("JDownloader", {
     # Fixes for tab navigation done here instead of in the main tab nav fix keymaps,
     # because we have to use a "list of dicts" to match some  JDownloader windows.
-    C("Shift-RC-Left_Brace"):  [bind,C("C-Shift-Tab")],         # Tab nav: Go to prior tab (left)
-    C("Shift-RC-Right_Brace"): [bind,C("C-Tab")],               # Tab nav: Go to next tab (right)
+    C("Shift-RC-Right_Brace"): [bind,C("C-Shift-Tab")],         # Tab nav: Go to prior tab (left)
+    C("Shift-RC-Backslash"):   [bind,C("C-Tab")],               # Tab nav: Go to next tab (right)
     C("Shift-RC-Left"):        [bind,C("C-Shift-Tab")],         # Tab nav: Go to prior tab (left)
     C("Shift-RC-Right"):       [bind,C("C-Tab")],               # Tab nav: Go to next tab (right)
 
@@ -3702,8 +3702,8 @@ keymap("Overrides for COSMIC Files - Finder Mods", {
     # No shortcuts yet to change the view modes?
     # TODO: Add Grid/List view mode shortcuts when available (if different from general FMs)
     # Tab nav uses Ctrl+Tab/Shift+Ctrl+Tab
-    C("Shift-RC-Left_Brace"):  [bind,C("Shift-C-Tab")],         # Go to prior tab (left)
-    C("Shift-RC-Right_Brace"): [bind,C("C-Tab")],               # Go to next tab (right)
+    C("Shift-RC-Right_Brace"): [bind,C("Shift-C-Tab")],         # Go to prior tab (left)
+    C("Shift-RC-Backslash"):   [bind,C("C-Tab")],               # Go to next tab (right)
     C("Shift-RC-Left"):        [bind,C("Shift-C-Tab")],         # Go to prior tab (left)
     C("Shift-RC-Right"):       [bind,C("C-Tab")],               # Go to next tab (right)
     # COSMIC uses nonstandard shortcut (Space) for file/folder Properties dialog
@@ -3720,8 +3720,8 @@ keymap("Overrides for DDE File Manager - Finder Mods", {
     C("RC-i"):                  C("C-i"),                       # File properties dialog (Get Info)
     C("RC-comma"):              None,                           # Disable preferences shortcut (no shortcut available)
     C("RC-Up"):                 C("C-Up"),                      # Go Up dir
-    C("Shift-RC-Left_Brace"):  [bind,C("C-Shift-Tab")],         # Go to prior tab
-    C("Shift-RC-Right_Brace"): [bind,C("C-Tab")],               # Go to next tab
+    C("Shift-RC-Right_Brace"): [bind,C("C-Shift-Tab")],         # Go to prior tab
+    C("Shift-RC-Backslash"):   [bind,C("C-Tab")],               # Go to next tab
     C("Shift-RC-Left"):        [bind,C("C-Shift-Tab")],         # Go to prior tab
     C("Shift-RC-Right"):       [bind,C("C-Tab")],               # Go to next tab
 }, when = lambda ctx:
@@ -3875,8 +3875,8 @@ hmp_is_peony_qt                 = matchProps(clas="^peony-qt$")
 keymap("Overrides for Peony-Qt - Finder Mods", {
     C("RC-Comma"):              None,                           # Block Cmd+Comma (doesn't work in Peony)
     C("RC-Equal"):              C("Shift-C-Equal"),             # Enlarge icons
-    C("Shift-RC-Left_Brace"):  [bind,C("C-Shift-Tab")],         # Go to prior tab
-    C("Shift-RC-Right_Brace"): [bind,C("C-Tab")],               # Go to next tab
+    C("Shift-RC-Right_Brace"): [bind,C("C-Shift-Tab")],         # Go to prior tab
+    C("Shift-RC-Backslash"):   [bind,C("C-Tab")],               # Go to next tab
     C("Shift-RC-Left"):        [bind,C("C-Shift-Tab")],         # Go to prior tab
     C("Shift-RC-Right"):       [bind,C("C-Tab")],               # Go to next tab
 }, when = lambda ctx:
@@ -3897,8 +3897,8 @@ hmp_is_spacefm                  = matchProps(clas="^spacefm$")
 keymap("Overrides for SpaceFM - Finder Mods", {
     C("RC-Page_Up"):           [bind,C("C-Shift-Tab")],         # Go to prior tab
     C("RC-Page_Down"):         [bind,C("C-Tab")],               # Go to next tab
-    C("Shift-RC-Left_Brace"):  [bind,C("C-Shift-Tab")],         # Go to prior tab
-    C("Shift-RC-Right_Brace"): [bind,C("C-Tab")],               # Go to next tab
+    C("Shift-RC-Right_Brace"): [bind,C("C-Shift-Tab")],         # Go to prior tab
+    C("Shift-RC-Backslash"):   [bind,C("C-Tab")],               # Go to next tab
     C("Shift-RC-Left"):        [bind,C("C-Shift-Tab")],         # Go to prior tab
     C("Shift-RC-Right"):       [bind,C("C-Tab")],               # Go to next tab
     C("Shift-RC-N"):            iEF2(C("C-F"), False),          # Switch Enter to Enter. New folder is Ctrl+F(???)
@@ -3981,8 +3981,8 @@ keymap("General File Managers - Finder Mods", {
     # C("Shift-RC-Left_Brace"):   C("C-Page_Up"),                 # Go to prior tab
     # C("Shift-RC-Right_Brace"):  C("C-Page_Down"),               # Go to next tab
 
-    C("Shift-RC-Left_Brace"):   [bind,C("C-Page_Up")],          # Go to prior tab
-    C("Shift-RC-Right_Brace"):  [bind,C("C-Page_Down")],        # Go to next tab
+    C("Shift-RC-Right_Brace"):  [bind,C("C-Page_Up")],          # Go to prior tab
+    C("Shift-RC-Backslash"):    [bind,C("C-Page_Down")],        # Go to next tab
 
     # C("Shift-RC-Left"):         C("C-Page_Up"),                 # Go to prior tab
     # C("Shift-RC-Right"):        C("C-Page_Down"),               # Go to next tab
@@ -4406,8 +4406,8 @@ keymap("VSCodes", {
     # C("C-PAGE_UP"):             ignore_combo,                   # cancel prev_view
     C("C-Alt-Left"):            C("C-PAGE_UP"),                 # next_view
     C("C-Alt-Right"):           C("C-PAGE_DOWN"),               # prev_view
-    C("Shift-RC-Left_Brace"):   C("C-PAGE_UP"),                 # next_view
-    C("Shift-RC-Right_Brace"):  C("C-PAGE_DOWN"),               # prev_view
+    C("Shift-RC-Right_Brace"):  C("C-PAGE_UP"),                 # next_view
+    C("Shift-RC-Backslash"):    C("C-PAGE_DOWN"),               # prev_view
 
     # VS Code Shortcuts
     C("C-g"):                   ignore_combo,                   # cancel Go to Line...
@@ -4650,8 +4650,8 @@ tab_UI_fix_CtrlAltPgUp_Str = toRgxStr(tab_UI_fix_CtrlAltPgUp_lst)
 # Tab navigation overrides for tabbed UI apps that use Ctrl+Shift+Tab/Ctrl+Tab instead of Ctrl+PgUp/PgDn
 hmp_is_tab_UI_fix_CtrlShiftTab  = matchProps(clas=tab_UI_fix_CtrlShiftTab_Str)
 keymap("Tab Nav fix for apps that use Ctrl+Shift+Tab/Ctrl+Tab", {
-    C("Shift-RC-Left_Brace"):  [bind,C("C-Shift-Tab")],         # Tab nav: Go to prior tab (left)
-    C("Shift-RC-Right_Brace"): [bind,C("C-Tab")],               # Tab nav: Go to next tab (right)
+    C("Shift-RC-Right_Brace"): [bind,C("C-Shift-Tab")],         # Tab nav: Go to prior tab (left)
+    C("Shift-RC-Backslash"):   [bind,C("C-Tab")],               # Tab nav: Go to next tab (right)
     C("Shift-RC-Left"):        [bind,C("C-Shift-Tab")],         # Tab nav: Go to prior tab (left)
     C("Shift-RC-Right"):       [bind,C("C-Tab")],               # Tab nav: Go to next tab (right)
 }, when = lambda ctx:
@@ -4662,8 +4662,8 @@ keymap("Tab Nav fix for apps that use Ctrl+Shift+Tab/Ctrl+Tab", {
 # Tab navigation overrides for tabbed UI apps that use Ctrl+Alt+PgUp/PgDn instead of Ctrl+PgUp/PgDn
 hmp_is_tab_UI_fix_CtrlAltPgUp   = matchProps(clas=tab_UI_fix_CtrlAltPgUp_Str)
 keymap("Tab Nav fix for apps that use Ctrl+Alt+PgUp/PgDn", {
-    C("Shift-RC-Left_Brace"):  [bind,C("C-Alt-Page_Up")],       # Go to prior tab (Left)
-    C("Shift-RC-Right_Brace"): [bind,C("C-Alt-Page_Down")],     # Go to next tab (Right)
+    C("Shift-RC-Right_Brace"): [bind,C("C-Alt-Page_Up")],       # Go to prior tab (Left)
+    C("Shift-RC-Backslash"):   [bind,C("C-Alt-Page_Down")],     # Go to next tab (Right)
 }, when = lambda ctx:
     cnfg.screen_has_focus and
     hmp_is_tab_UI_fix_CtrlAltPgUp(ctx)
@@ -4676,8 +4676,8 @@ keymap("Konsole tab switching", {
     C("LC-Tab") :              [bind,C("Shift-Right")],
     C("LC-Grave") :            [bind,C("Shift-Left")],
     # Konsole tab switching in KDE4 (not needed in KDE5)
-    C("Shift-RC-Left_Brace"):  [bind,C("Shift-Left")],          # Go to prior tab (Left)
-    C("Shift-RC-Right_Brace"): [bind,C("Shift-Right")],         # Go to next tab (Right)
+    C("Shift-RC-Right_Brace"): [bind,C("Shift-Left")],          # Go to prior tab (Left)
+    C("Shift-RC-Backslash"):   [bind,C("Shift-Right")],         # Go to next tab (Right)
 }, when = lambda ctx:
     cnfg.screen_has_focus and
     hmp_is_term_konsole(ctx) )
@@ -5383,8 +5383,8 @@ keymap("General GUI", {
     C("Fn-Numlock"):            toggle_forced_numpad,           # Turn the Forced Numpad feature on and off
     C("Numlock"):               isNumlockClearKey,              # Numlock key is "Clear" (Esc) if cnfg.forced_numpad is True
 
-    C("Shift-RC-Left_Brace"):   C("C-Page_Up"),                 # Tab navigation: Go to prior (left) tab
-    C("Shift-RC-Right_Brace"):  C("C-Page_Down"),               # Tab navigation: Go to next (right) tab
+    C("Shift-RC-Right_Brace"):  C("C-Page_Up"),                 # Tab navigation: Go to prior (left) tab
+    C("Shift-RC-Backslash"):    C("C-Page_Down"),               # Tab navigation: Go to next (right) tab
     C("RC-Space"):             [iEF2NT(),C("Alt-F1")],          # Default SL - Launch Application Menu (gnome/kde)
     C("RC-F3"):                 C("Super-d"),                   # Default SL - Show Desktop (gnome/kde,elementary)
     C("RC-Super-f"):            C("Alt-F10"),                   # Default SL - Maximize app (gnome/kde)
