@@ -2839,6 +2839,10 @@ def install_libinput_dwt_quirk():
         print('Continuing with setup...')
         return
 
+    # If we get here it means we installed the libinput quirk, so user needs to
+    # at least log out, or restart the system to activate the quirk.
+    cnfg.should_reboot = True
+
     show_task_completed_msg()
 
 
