@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '20260313'
+__version__ = '20260330'
 ###############################################################################
 ############################   Welcome to Toshy!   ############################
 ###
@@ -1231,11 +1231,12 @@ def notify_context():
 
 from toshy_common.xkb_check import XKBOptionsCheck
 
-_xkb_checker = XKBOptionsCheck()
-_xkb_has_issues = _xkb_checker.check_for_issues()
+_xkb_checker                    = XKBOptionsCheck()
+_xkb_has_issues                 = _xkb_checker.check_for_issues()
 
 if _xkb_has_issues:
     _xkb_sep = '!' * 72
+    print()     # blank line in logging
     error(f'\n'
         f'{_xkb_sep}\n'
         f'{_xkb_sep}\n'
@@ -1256,8 +1257,8 @@ if _xkb_has_issues:
 
     ntfy.send_notification(
         message     = 'XKB config issue detected! '
-                      'Modifier key shortcuts will not work correctly. '
-                      'Run "toshy-xkb-check" in a terminal for details.',
+                        'Modifier key shortcuts will not work correctly. '
+                        'Run "toshy-xkb-check" in a terminal for details.',
         urgency     = 'critical',
     )
 
