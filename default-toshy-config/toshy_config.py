@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '20260313'
+__version__ = '20260330'
 ###############################################################################
 ############################   Welcome to Toshy!   ############################
 ###
@@ -1225,6 +1225,67 @@ def notify_context():
         # Optionally, also send a system notification:
         # ntfy.send_notification(message)
     return _notify_context
+
+
+###  XKB OPTIONS CHECK  ###
+
+from toshy_common.xkb_check import XKBOptionsCheck
+
+_xkb_checker                    = XKBOptionsCheck()
+_xkb_has_issues                 = _xkb_checker.check_for_issues()
+
+if _xkb_has_issues:
+    _xkb_sep = '!' * 72
+    print()     # blank line in logging
+    error(f'\n'
+        f'{_xkb_sep}\n'
+        f'{_xkb_sep}\n'
+        f'\n'
+        f'  WARNING: XKB configuration issue detected!\n'
+        f'\n'
+        f'  Your system has XKB options that reassign modifier keys\n'
+        f'  Toshy depends on. This WILL cause shortcuts like\n'
+        f'  Cmd+C, Cmd+V, Cmd+X, Cmd+A, Cmd+F, etc. to FAIL.\n'
+        f'\n'
+        f'  Run this command for details and fix instructions:\n'
+        f'\n'
+        f'      toshy-xkb-check\n'
+        f'\n'
+        f'{_xkb_sep}\n'
+        f'{_xkb_sep}\n'
+    )
+
+    ntfy.send_notification(
+        message     = 'XKB config issue detected! '
+                        'Modifier key shortcuts will not work correctly. '
+                        'Run "toshy-xkb-check" in a terminal for details.',
+        urgency     = 'critical',
+    )
+
+    if zenity_cmd:
+        try:
+            _xkb_dialog_text = (
+                'WARNING: XKB configuration issue detected!\n'
+                '\n'
+                'Your system has XKB options that reassign modifier\n'
+                'keys Toshy depends on. This WILL cause shortcuts\n'
+                'like copy, paste, cut, select-all, and find to FAIL.\n'
+                '\n'
+                'Run this command in a terminal for details:\n'
+                '\n'
+                '    toshy-xkb-check'
+            )
+            _xkb_dialog_cmd = [zenity_cmd, '--warning',
+                                '--title=Toshy XKB Warning',
+                                f'--text={_xkb_dialog_text}',
+                                '--width=450']
+            if zenity_icon_option:
+                _xkb_dialog_cmd.append(zenity_icon_option)
+            subprocess.Popen(_xkb_dialog_cmd,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+        except Exception:
+            pass    # dialog is best-effort, don't block config loading
 
 
 def is_pre_GNOME_45(de_ver):

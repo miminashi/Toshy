@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-__version__ = '20260325'                        # CLI option "--version" will print this out.
+__version__ = '20260330'                        # CLI option "--version" will print this out.
 
 import os
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'     # prevent this script from creating cache files
@@ -1228,8 +1228,9 @@ pkg_groups_map = {
                             # Ref: https://github.com/AyatanaIndicators/libayatana-appindicator-glib
                             # "gir1.2-ayatanaappindicatorglib-2.0",
                             "input-utils",
-                            "libcairo2-dev", "libdbus-1-dev", "libjpeg-dev", "libnotify-bin",
-                                "libsystemd-dev", "libwayland-dev", "libxkbcommon-dev",
+                            "libcairo2-dev", "libdbus-1-dev", "libinput-tools", "libjpeg-dev",
+                                "libnotify-bin", "libsystemd-dev", "libwayland-dev",
+                                "libxkbcommon-dev",
                             "python3-dbus", "python3-dev", "python3-pip", "python3-tk",
                                 "python3-venv",
                             "zenity"],
@@ -1247,8 +1248,9 @@ pkg_groups_map = {
                             # Ref: https://github.com/AyatanaIndicators/libayatana-appindicator-glib
                             # "gir1.2-ayatanaappindicatorglib-2.0",
                             "input-utils",
-                            "libcairo2-dev", "libdbus-1-dev", "libjpeg-dev", "libnotify-bin",
-                                "libsystemd-dev", "libwayland-dev", "libxkbcommon-dev",
+                            "libcairo2-dev", "libdbus-1-dev", "libinput-tools", "libjpeg-dev",
+                                "libnotify-bin", "libsystemd-dev", "libwayland-dev",
+                                "libxkbcommon-dev",
                             "python3-dbus", "python3-dev", "python3-pip", "python3-tk",
                                 "python3-venv",
                             "zenity"],
