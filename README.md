@@ -64,6 +64,58 @@ toshy-fnmode 2 --persistent
 
 この設定は `/etc/modprobe.d/hid_apple.conf` に書き込まれ、再起動後も維持されます。
 
+### 動作確認
+
+セットアップ完了後、以下の手順で動作を確認します。
+
+1. Toshy サービスが稼働していることを確認:
+
+   ```bash
+   systemctl --user status toshy-config toshy-session-monitor
+   ```
+
+2. キーリマッピングの動作確認:
+   - **英数キー** を押す → IME がオフになる（直接入力）
+   - **かなキー** を押す → ひらがな入力モードに切り替わる
+   - **Cmd+Shift+\[** / **Cmd+Shift+\]** → 前のタブ / 次のタブに移動する
+
+3. 問題がある場合はログを確認:
+
+   ```bash
+   journalctl --user -u toshy-config -f
+   ```
+
+## トラブルシューティング
+
+### かなキーを押すたびに IME がトグルする
+
+Toshy サービス（`toshy-config`）が停止している場合、かなキー（`KEY_HANGEUL`）が xwaykeyz で変換されずに IBus に直接到達します。IBus のデフォルト trigger リストには `Hangul` が含まれているため、トグル動作になります。
+
+```bash
+# サービスの状態を確認
+systemctl --user status toshy-config
+
+# サービスを再起動
+systemctl --user restart toshy-config
+```
+
+### 英数・かなキーが反応しない
+
+1. `toshy-config` サービスが稼働しているか確認:
+
+   ```bash
+   systemctl --user status toshy-config
+   ```
+
+2. IBus の `enable-unconditional` 設定が正しいか確認:
+
+   ```bash
+   gsettings get org.freedesktop.ibus.general.hotkey enable-unconditional
+   # 期待値: ['Katakana']
+   ```
+
+3. Mozc のキーマップに無変換・変換キーの設定が入っているか確認（「[Mozc のキーマップ設定](#mozc-のキーマップ設定)」を参照）
+
 ## 技術解説
 
 ### タブ切り替えショートカットの JIS 配列対応
