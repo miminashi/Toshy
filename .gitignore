@@ -1,5 +1,6 @@
 # Ignore local config and log files
 .vscode/
+.claude/
 *.log
 *.sqlite
 *.sqlite3
@@ -20,6 +21,9 @@ __pycache__/
 keyszer/
 keyszer-temp/
 keyszer*/
+
+# Ignore xwaykeyz subproject
+keymapper-temp/
 
 # Ignore Dolphin `.directory` files with custom folder view settings
 .directory
