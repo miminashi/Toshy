@@ -2124,7 +2124,7 @@ keymap("Cond keymap - Apple JIS - Kana", {
     # かな (HANGEUL/122) → [KATAKANA, HENKAN] 二段キー方式
     # 1. KATAKANA (code 90): IBus enable-unconditional トリガー（エンジン再起動用）
     # 2. HENKAN (code 92): Mozc InputModeHiragana トリガー（モード切替用）
-    Key.HANGEUL:  [Key.KATAKANA, Key.HENKAN],
+    C("HANGEUL"):  [Key.KATAKANA, Key.HENKAN],
 }, when = lambda ctx:
     cnfg.screen_has_focus and
     isKBtype('Apple', map='kmap Apple JIS Kana')(ctx)
