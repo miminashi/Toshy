@@ -5,7 +5,7 @@
 1. タブ切り替えショートカットの JIS 配列対応
 2. 英数・かなキーによる IME 切り替え
 
-> **Note**: 現在 Debian 13 + GNOME 環境でのみ動作確認しています。他のディストリビューション・デスクトップ環境では未検証です。
+> **Note**: 現在 Debian 13 + GNOME（X11 セッション）でのみ動作確認しています。Wayland セッション、および他のディストリビューション・デスクトップ環境では未検証です。
 
 ## セットアップ手順
 
@@ -105,6 +105,8 @@ IBus は KATAKANA キーイベントを消費するため、後続の HENKAN は
 - エンジンが非アクティブな場合: KATAKANA でエンジン起動（消費）→ HENKAN → Mozc
 
 KATAKANA キーを選択した理由: Apple JIS キーボードに物理キーがなく、Mozc のキーマップにもバインドがないため安全。
+
+> **Note**: IBus のデフォルト trigger リストには `Hangul`（= Apple JIS かなキーの evdev キーコード）が含まれています。xwaykeyz が正常に動作している場合、HANGEUL キーイベントは KATAKANA + HENKAN に変換されてから IBus に到達するため、この trigger は発火しません。Toshy サービスが停止している場合のみ、IBus が Hangul をトグルキーとして処理します。
 
 **3. IME モード切替（Mozc 層）**
 
