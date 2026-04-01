@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # scripts/bin/toshy-libinput.sh
 #
+SCRIPT_VERSION="20260325"
+
 # Toshy libinput Diagnostic Utility
 # ----------------------------------
 # Interactive tool for diagnosing libinput DWT (disable-while-typing)
@@ -22,23 +24,13 @@
 
 # ── Guards ────────────────────────────────────────────────────────────────────
 
-if [[ ${EUID} -eq 0 ]]; then
-    echo "This script must not be run as root (it uses elevated privileges internally)."
-    exit 1
-fi
-
-if [[ -z "${USER}" ]] || [[ -z "${HOME}" ]]; then
-    echo "\$USER and/or \$HOME environment variables are not set. We need them."
-    exit 1
-fi
-
-
 # ── Colors ────────────────────────────────────────────────────────────────────
 
 RED='\033[0;31m'
 GRN='\033[0;32m'
 YLW='\033[0;33m'
 BLU='\033[0;34m'
+# shellcheck disable=SC2034     # ignore if var is unused
 MGN='\033[0;35m'
 CYN='\033[0;36m'
 BLD='\033[1m'
@@ -54,14 +46,27 @@ VIRT_KBD_PATTERN="XWayKeyz (virtual)"
 # Section name and content that Toshy would install
 QUIRKS_SECTION_NAME="XWayKeyz Virtual Keyboard"
 QUIRKS_MATCH_NAME="*(virtual) Keyboard"
+# Full entry to write into the quirks file
+QUIRKS_ENTRY="[${QUIRKS_SECTION_NAME}]
+MatchUdevType=keyboard
+MatchName=${QUIRKS_MATCH_NAME}
+AttrKeyboardIntegration=internal"
 
 
-# ── Privilege elevation detection ─────────────────────────────────────────────
-# Matches the preference order in setup_toshy.py: sudo, doas, run0, sudo-rs
+# ── Privilege elevation ────────────────────────────────────────────────────────
+# When running as root (e.g., via sudo from setup_toshy.py), commands run directly.
+# When running as a normal user interactively, commands are elevated via the
+# detected privilege command (sudo, doas, run0, sudo-rs — same preference order
+# as setup_toshy.py).
 
 ELEV_CMD=""
+IN_ALT_BUFFER=false
 
 detect_elev_cmd() {
+    # Not needed when already root
+    if [[ ${EUID} -eq 0 ]]; then
+        return 0
+    fi
     local known_cmds=("sudo" "doas" "run0" "sudo-rs")
     for cmd in "${known_cmds[@]}"; do
         if command -v "${cmd}" &>/dev/null; then
@@ -75,15 +80,32 @@ detect_elev_cmd() {
     exit 1
 }
 
+# Run a command with elevation if needed, or directly if already root.
+elev() {
+    if [[ ${EUID} -eq 0 ]]; then
+        "$@"
+    else
+        "${ELEV_CMD}" "$@"
+    fi
+}
+
 
 # ── Safe exit with ticket invalidation ────────────────────────────────────────
 
 safe_exit() {
     local exit_code="${1:-0}"
 
-    # Only sudo and sudo-rs have a standard way to invalidate cached credentials
-    if [[ "${ELEV_CMD}" == "sudo" ]] || [[ "${ELEV_CMD}" == "sudo-rs" ]]; then
-        "${ELEV_CMD}" -k &>/dev/null
+    # Restore the original terminal screen if we entered the alternate buffer
+    if ${IN_ALT_BUFFER}; then
+        tput rmcup 2>/dev/null
+        IN_ALT_BUFFER=false
+    fi
+
+    # Invalidate cached credentials (only when not root, and only for sudo/sudo-rs)
+    if [[ ${EUID} -ne 0 ]]; then
+        if [[ "${ELEV_CMD}" == "sudo" ]] || [[ "${ELEV_CMD}" == "sudo-rs" ]]; then
+            "${ELEV_CMD}" -k &>/dev/null
+        fi
     fi
 
     echo
@@ -135,6 +157,14 @@ print_effectively_empty_warning() {
     echo -e "     Either uncomment the entries or delete the file entirely."
 }
 
+quirk_entry_is_installed() {
+    # Returns 0 (true) if the virtual keyboard quirk entry is active in the file.
+    # Matches on the MatchName line (the functional key) rather than section name,
+    # in case the user created it manually with a different section header.
+    [[ ! -f "${QUIRKS_FILE}" ]] && return 1
+    grep -qE '^\s*MatchName\s*=\s*\*\(virtual\) Keyboard' "${QUIRKS_FILE}" 2>/dev/null
+}
+
 
 # ── Dependency check ──────────────────────────────────────────────────────────
 
@@ -153,48 +183,6 @@ check_libinput_tools() {
 }
 
 
-# ── Elevated privileges helper ────────────────────────────────────────────────
-# Prompt for credentials up front. The first elevated command will trigger the
-# password prompt from the elevation command itself — we just explain what's
-# about to happen so the user isn't surprised.
-
-ensure_elevated() {
-    echo -e "${DIM}Some libinput commands require elevated privileges (via '${ELEV_CMD}').${RST}"
-    echo -e "${DIM}You may be prompted for your password.${RST}"
-    echo
-
-    # Probe whether credentials are already cached (non-interactive check)
-    local already_cached=false
-    case "${ELEV_CMD}" in
-        sudo|doas|sudo-rs)
-            if "${ELEV_CMD}" -n true &>/dev/null; then
-                already_cached=true
-            fi
-            ;;
-        run0)
-            if "${ELEV_CMD}" --no-ask-password true &>/dev/null; then
-                already_cached=true
-            fi
-            ;;
-    esac
-
-    if ${already_cached}; then
-        echo -e "${DIM}Credentials already cached. Proceeding.${RST}"
-        echo
-        return 0
-    fi
-
-    # Credentials not cached — alert the user, then do a real elevation to trigger the prompt
-    echo -e "${BLD}${MGN}  ── PASSWORD REQUIRED TO CONTINUE ──${RST}"
-    echo
-
-    if ! "${ELEV_CMD}" true; then
-        echo -e "${RED}ERROR:${RST} Could not obtain elevated privileges via '${ELEV_CMD}'."
-        safe_exit 1
-    fi
-}
-
-
 # ── Device listing ────────────────────────────────────────────────────────────
 # Parse `libinput list-devices` into parallel arrays for interactive selection.
 # We collect keyboards AND touchpads since both sides of the pairing matter.
@@ -208,7 +196,7 @@ declare -a DEV_GROUPS=()
 
 collect_devices() {
     local raw
-    raw="$("${ELEV_CMD}" libinput list-devices 2>/dev/null)"
+    raw="$(elev libinput list-devices 2>/dev/null)"
     if [[ -z "${raw}" ]]; then
         echo -e "${RED}ERROR:${RST} 'libinput list-devices' returned no output."
         echo -e "       Is the libinput-tools package installed and working?"
@@ -274,8 +262,25 @@ collect_devices() {
     return 0
 }
 
+DEVICES_COLLECTED=false
+
+ensure_devices_collected() {
+    # Lazy wrapper — collects device info on first demand so that menu options
+    # that don't need the device list never trigger an elevation prompt.
+    if ${DEVICES_COLLECTED}; then
+        return 0
+    fi
+    echo
+    echo -e "${DIM}Querying libinput for device information (may require your password)...${RST}"
+    echo
+    collect_devices || return 1
+    DEVICES_COLLECTED=true
+    return 0
+}
+
 
 show_device_list() {
+    if ! ensure_devices_collected; then return; fi
     echo
     echo -e "${BLD}Keyboards and pointer/touchpad devices visible to libinput:${RST}"
     echo -e "${DIM}─────────────────────────────────────────────────────────────────────${RST}"
@@ -367,7 +372,7 @@ do_check_quirks() {
     fi
 
     local output
-    output="$("${ELEV_CMD}" libinput quirks list "${kern}" 2>&1)"
+    output="$(elev libinput quirks list "${kern}" 2>&1)"
 
     if [[ -z "${output}" ]]; then
         echo -e "  ${YLW}(no quirks matched for this device)${RST}"
@@ -413,7 +418,7 @@ do_check_quirks_verbose() {
         echo
     fi
 
-    "${ELEV_CMD}" libinput quirks list --verbose "${kern}" 2>&1 | while IFS= read -r line; do
+    elev libinput quirks list --verbose "${kern}" 2>&1 | while IFS= read -r line; do
         if [[ "${line}" == *"is full match"* ]]; then
             echo -e "  ${GRN}${BLD}${line}${RST}"
         elif [[ "${line}" == *"property added"* ]]; then
@@ -433,6 +438,7 @@ do_check_quirks_verbose() {
 # ── Quick DWT diagnosis ──────────────────────────────────────────────────────
 
 do_quick_diagnosis() {
+    if ! ensure_devices_collected; then return; fi
     echo
     echo -e "${BLD}${BLU}═══ Quick DWT Diagnosis ═══${RST}"
     echo
@@ -494,7 +500,7 @@ do_quick_diagnosis() {
 
         # Validate parsing
         local validate_out
-        validate_out="$("${ELEV_CMD}" libinput quirks validate 2>&1)"
+        validate_out="$(elev libinput quirks validate 2>&1)"
         if [[ $? -eq 0 ]] && [[ -z "${validate_out}" ]]; then
             echo -e "   ${GRN}✓${RST} Quirks file validates OK (no parsing errors)"
         else
@@ -510,7 +516,7 @@ do_quick_diagnosis() {
     if ${found_virt_kbd}; then
         local vkbd_kern="${DEV_KERNELS[$virt_kbd_idx]}"
         local quirk_out
-        quirk_out="$("${ELEV_CMD}" libinput quirks list "${vkbd_kern}" 2>&1)"
+        quirk_out="$(elev libinput quirks list "${vkbd_kern}" 2>&1)"
 
         if [[ "${quirk_out}" == *"AttrKeyboardIntegration=internal"* ]]; then
             echo -e "   ${GRN}✓${RST} Virtual keyboard IS marked as internal"
@@ -543,7 +549,7 @@ do_quick_diagnosis() {
 
             # Check if the touchpad is recognized as internal
             local tp_quirk_out
-            tp_quirk_out="$("${ELEV_CMD}" libinput quirks list "${tp_kern}" 2>&1)"
+            tp_quirk_out="$(elev libinput quirks list "${tp_kern}" 2>&1)"
             if [[ -z "${tp_quirk_out}" ]]; then
                 echo -e "     ${DIM}No device-specific quirks (relies on auto-detection for internal/external)${RST}"
             else
@@ -568,7 +574,7 @@ do_quick_diagnosis() {
         fi
         local kern="${DEV_KERNELS[$i]}"
         local q_out
-        q_out="$("${ELEV_CMD}" libinput quirks list "${kern}" 2>&1)"
+        q_out="$(elev libinput quirks list "${kern}" 2>&1)"
 
         if [[ "${q_out}" == *"AttrKeyboardIntegration=internal"* ]]; then
             internal_count=$(( internal_count + 1 ))
@@ -606,7 +612,7 @@ do_quick_diagnosis() {
     if ${found_virt_kbd} && [[ -f "${QUIRKS_FILE}" ]]; then
         local vkbd_kern="${DEV_KERNELS[$virt_kbd_idx]}"
         local vk_quirk
-        vk_quirk="$("${ELEV_CMD}" libinput quirks list "${vkbd_kern}" 2>&1)"
+        vk_quirk="$(elev libinput quirks list "${vkbd_kern}" 2>&1)"
         if [[ "${vk_quirk}" == *"AttrKeyboardIntegration=internal"* ]] && ${found_touchpad}; then
             echo -e "  ${GRN}${BLD}DWT pairing looks GOOD.${RST}"
             echo -e "  The virtual keyboard is internal, touchpad is present, and quirks validate."
@@ -699,7 +705,7 @@ do_validate_quirks() {
     fi
 
     local output
-    output="$("${ELEV_CMD}" libinput quirks validate 2>&1)"
+    output="$(elev libinput quirks validate 2>&1)"
     local rc=$?
 
     if [[ ${rc} -eq 0 ]] && [[ -z "${output}" ]]; then
@@ -744,8 +750,159 @@ do_live_dwt_test() {
     echo
 
     # Run debug-events, let the user Ctrl+C out of it
-    "${ELEV_CMD}" libinput debug-events 2>&1 || true
+    elev libinput debug-events 2>&1 || true
     echo
+}
+
+
+# ── Install / remove DWT quirk entry ─────────────────────────────────────────
+
+# Helper: Does the file contain ANY section (active or commented) with our MatchName?
+file_has_vkbd_section() {
+    [[ ! -f "${QUIRKS_FILE}" ]] && return 1
+    grep -qE '(^|^#\s*)MatchName\s*=\s*\*\(virtual\) Keyboard' "${QUIRKS_FILE}" 2>/dev/null
+}
+
+# Helper: Strip all sections (active or commented) containing the virtual keyboard
+# MatchName from the quirks file. Writes the cleaned result back, or deletes the
+# file if nothing meaningful remains. Returns 0 on success, 1 on error.
+strip_vkbd_sections() {
+    if [[ ! -f "${QUIRKS_FILE}" ]]; then
+        return 0
+    fi
+
+    if ! file_has_vkbd_section; then
+        return 0
+    fi
+
+    # Use awk to remove any section containing the virtual keyboard MatchName.
+    # Sections run from one [header] (or commented [header]) to the next (or EOF).
+    # The MatchName pattern matches both active and commented-out lines.
+    local tmp_file
+    tmp_file="$(mktemp)"
+
+    awk '
+        /^#?[[:space:]]*\[/ {
+            if (buf != "" && !skip) printf "%s", buf
+            buf = ""; skip = 0
+        }
+        { buf = buf $0 "\n" }
+        /MatchName.*\(virtual\) Keyboard/ { skip = 1 }
+        END { if (buf != "" && !skip) printf "%s", buf }
+    ' "${QUIRKS_FILE}" > "${tmp_file}"
+
+    # Strip trailing blank lines from the result
+    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "${tmp_file}" 2>/dev/null
+
+    # Check if the result is effectively empty
+    if [[ ! -s "${tmp_file}" ]] || ! grep -qE '^[^#[:space:]]' "${tmp_file}" 2>/dev/null; then
+        # Nothing meaningful remains — delete the file entirely to avoid
+        # the "empty file" parser error that disables all quirks
+        echo -e "  Removing ${QUIRKS_FILE} (no other entries remain)"
+        if ! elev rm -f "${QUIRKS_FILE}"; then
+            echo -e "  ${RED}ERROR: Failed to remove ${QUIRKS_FILE}${RST}"
+            rm -f "${tmp_file}"
+            return 1
+        fi
+    else
+        # Write the filtered content back
+        echo -e "  Stripping stale DWT entries from ${QUIRKS_FILE}"
+        if ! elev cp "${tmp_file}" "${QUIRKS_FILE}"; then
+            echo -e "  ${RED}ERROR: Failed to update ${QUIRKS_FILE}${RST}"
+            rm -f "${tmp_file}"
+            return 1
+        fi
+    fi
+
+    rm -f "${tmp_file}"
+    return 0
+}
+
+
+do_install_quirk() {
+    echo
+    echo -e "${BLD}${BLU}═══ Install DWT Quirk Entry ═══${RST}"
+    echo
+
+    if quirk_entry_is_installed; then
+        echo -e "  ${GRN}✓ DWT quirk entry is already installed. Nothing to do.${RST}"
+        echo
+        return 0
+    fi
+
+    # Strip any stale (commented-out or malformed) sections before writing fresh.
+    # This prevents duplicates if someone commented out our entry and we re-install.
+    strip_vkbd_sections || return 1
+
+    # Create the directory if it doesn't exist
+    if [[ ! -d "${QUIRKS_DIR}" ]]; then
+        echo -e "  Creating directory: ${QUIRKS_DIR}"
+        if ! elev mkdir -p "${QUIRKS_DIR}"; then
+            echo -e "  ${RED}ERROR: Failed to create ${QUIRKS_DIR}${RST}"
+            return 1
+        fi
+    fi
+
+    if [[ ! -f "${QUIRKS_FILE}" ]]; then
+        # Create new file with the entry
+        echo -e "  Creating: ${QUIRKS_FILE}"
+        if ! printf '%s\n' "${QUIRKS_ENTRY}" | elev tee "${QUIRKS_FILE}" >/dev/null; then
+            echo -e "  ${RED}ERROR: Failed to create ${QUIRKS_FILE}${RST}"
+            return 1
+        fi
+    else
+        # Append to existing file with a blank line separator
+        echo -e "  Appending entry to: ${QUIRKS_FILE}"
+        if ! printf '\n%s\n' "${QUIRKS_ENTRY}" | elev tee -a "${QUIRKS_FILE}" >/dev/null; then
+            echo -e "  ${RED}ERROR: Failed to append to ${QUIRKS_FILE}${RST}"
+            return 1
+        fi
+    fi
+
+    # Validate the result
+    local validate_out
+    validate_out="$(elev libinput quirks validate 2>&1)"
+    if [[ $? -eq 0 ]] && [[ -z "${validate_out}" ]]; then
+        echo -e "  ${GRN}✓ DWT quirk entry installed and validated successfully.${RST}"
+        echo
+        echo -e "  ${DIM}Note: The compositor must be restarted (log out/in or reboot) for${RST}"
+        echo -e "  ${DIM}the quirk to take effect on the running session.${RST}"
+    else
+        echo -e "  ${RED}✗ Entry written but validation failed:${RST}"
+        echo -e "  ${RED}${validate_out}${RST}"
+        echo
+        return 1
+    fi
+    echo
+    return 0
+}
+
+
+do_remove_quirk() {
+    echo
+    echo -e "${BLD}${BLU}═══ Remove DWT Quirk Entry ═══${RST}"
+    echo
+
+    if [[ ! -f "${QUIRKS_FILE}" ]]; then
+        echo -e "  ${GRN}Quirks file does not exist. Nothing to remove.${RST}"
+        echo
+        return 0
+    fi
+
+    if ! file_has_vkbd_section; then
+        echo -e "  ${GRN}DWT quirk entry is not present (active or commented). Nothing to remove.${RST}"
+        echo
+        return 0
+    fi
+
+    strip_vkbd_sections || return 1
+
+    echo -e "  ${GRN}✓ DWT quirk entry removed.${RST}"
+    echo
+    echo -e "  ${DIM}Note: The compositor must be restarted (log out/in or reboot) for${RST}"
+    echo -e "  ${DIM}the change to take effect on the running session.${RST}"
+    echo
+    return 0
 }
 
 
@@ -754,6 +911,7 @@ do_live_dwt_test() {
 show_menu() {
     echo
     echo -e "${BLD}${BLU}Toshy libinput Diagnostic Utility${RST}"
+    echo -e "${DIM}Diagnose disable-while-typing (DWT) / palm rejection issues${RST}"
     echo -e "${DIM}─────────────────────────────────────────────${RST}"
     echo -e "  ${BLD}1${RST}  List keyboards & touchpads"
     echo -e "  ${BLD}2${RST}  Check quirks for a device"
@@ -762,20 +920,98 @@ show_menu() {
     echo -e "  ${BLD}5${RST}  Show quirks file contents"
     echo -e "  ${BLD}6${RST}  Validate quirks files"
     echo -e "  ${BLD}7${RST}  Live DWT test (libinput debug-events)"
+    echo -e "  ${BLD}8${RST}  Install DWT quirk entry"
+    echo -e "  ${BLD}9${RST}  Remove DWT quirk entry"
     echo -e "${DIM}─────────────────────────────────────────────${RST}"
+    echo -e "  ${DIM}Some options require elevated privileges.${RST}"
+    echo -e "  ${DIM}You may be prompted for your password.${RST}"
+    echo
+}
+
+
+show_cli_usage() {
+    echo
+    echo -e "${BLD}Usage:${RST} $(basename "$0") [COMMAND]"
+    echo
+    echo -e "  Diagnose and manage libinput disable-while-typing (DWT) quirks"
+    echo -e "  for the xwaykeyz virtual keyboard."
+    echo
+    echo -e "  Run without a command for the interactive menu."
+    echo
+    echo -e "  ${BLD}install-quirk${RST}   Install the disable-while-typing quirk (idempotent)"
+    echo -e "  ${BLD}remove-quirk${RST}    Remove the disable-while-typing quirk (idempotent)"
+    echo -e "  ${BLD}check-quirk${RST}     Check if the quirk entry is installed"
+    echo -e "                  Exit code: 0 = installed, 1 = not installed"
+    echo -e "  ${BLD}version${RST}         Show script version"
+    echo -e "  ${BLD}help${RST}            Show this help message"
+    echo
 }
 
 
 main() {
+    # ── CLI command handling (non-interactive, for use by setup_toshy.py) ──────
+
+    case "${1:-}" in
+        install-quirk)
+            check_libinput_tools
+            detect_elev_cmd
+            do_install_quirk
+            safe_exit $?
+            ;;
+        remove-quirk)
+            check_libinput_tools
+            detect_elev_cmd
+            do_remove_quirk
+            safe_exit $?
+            ;;
+        check-quirk)
+            if quirk_entry_is_installed; then
+                echo "installed"
+                exit 0
+            else
+                echo "not-installed"
+                exit 1
+            fi
+            ;;
+        help|-h|--help)
+            show_cli_usage
+            exit 0
+            ;;
+        version|--version)
+            echo "toshy-libinput version ${SCRIPT_VERSION}"
+            exit 0
+            ;;
+        "")
+            # No arguments — fall through to interactive menu below
+            ;;
+        *)
+            echo -e "${RED}Unknown command:${RST} $1"
+            show_cli_usage
+            exit 1
+            ;;
+    esac
+
+    # ── Interactive menu ──────────────────────────────────────────────────────
+
     check_libinput_tools
     detect_elev_cmd
-    ensure_elevated
-    collect_devices
+
+    # Switch to alternate screen buffer so the user's terminal history is
+    # preserved when the script exits (like less, vim, htop, etc.)
+    tput smcup 2>/dev/null
+    IN_ALT_BUFFER=true
 
     while true; do
+        clear
         show_menu
         local opt
         read_or_quit "  Choose an option (or 'q' to quit): " opt
+
+        # Clear before output for valid options
+        if [[ "${opt}" =~ ^[1-9]$ ]]; then
+            clear
+        fi
+
         case "${opt}" in
             1)  show_device_list ;;
             2)  do_check_quirks ;;
@@ -784,10 +1020,20 @@ main() {
             5)  do_show_quirks_file ;;
             6)  do_validate_quirks ;;
             7)  do_live_dwt_test ;;
+            8)  do_install_quirk ;;
+            9)  do_remove_quirk ;;
             *)
                 echo -e "  ${YLW}Invalid choice.${RST}"
+                sleep 0.6
                 ;;
         esac
+
+        # Pause before redisplaying the menu, except for the live test
+        # (option 7 already blocks on Ctrl+C) and invalid choices.
+        if [[ "${opt}" =~ ^[1-689]$ ]]; then
+            local _pause
+            read_or_quit "  Press Enter to return to the menu (or 'q' to quit): " _pause
+        fi
     done
 }
 
