@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Check XKB options for settings that conflict with Toshy's modifier remapping.
+"""
+Check XKB options for settings that conflict with Toshy's modifier remapping.
 
 toshy_common/xkb_check.py
 
@@ -15,7 +16,7 @@ Can be used as a library from the config file:
 Or run standalone via the 'toshy-xkb-check' command for a detailed report.
 """
 
-__version__ = '20260330'
+__version__ = '20260401'
 
 import os
 import shutil
@@ -67,21 +68,29 @@ class XKBOptionsCheck:
         self.window_mgr         = env_info.get('WINDOW_MGR', '')
 
         self.findings: 'list[dict]' = []
+        self.notes: 'list[str]' = []
 
     def check_for_issues(self) -> bool:
         """Primary method for config file usage. Returns True if issues found."""
         self.findings.clear()
+        self.notes.clear()
 
         self._check_etc_default_keyboard()
 
-        if self.session_type == 'x11':
+        if self.desktop_env in ['cosmic']:
+            self._check_cosmic_xkb_config()
+        elif self.desktop_env in ['gnome']:
+            self._check_gnome_gsettings()
+        elif self.desktop_env in ['kde']:
+            self._check_kde_kxkbrc()
+        elif shutil.which('setxkbmap'):
             self._check_setxkbmap_query()
         else:
-            # Wayland — check compositor-specific sources
-            if self.desktop_env in ['cosmic']:
-                self._check_cosmic_xkb_config()
-            if self.desktop_env in ['gnome']:
-                self._check_gnome_gsettings()
+            self.notes.append(
+                f"No XKB check available for this environment "
+                f"(DE: '{self.desktop_env}', session: '{self.session_type}'). "
+                f"Could not find 'setxkbmap' command as fallback."
+            )
 
         return len(self.findings) > 0
 
@@ -170,7 +179,7 @@ class XKBOptionsCheck:
         try:
             result = subprocess.run(
                 [gsettings_cmd, 'get',
-                 'org.gnome.desktop.input-sources', 'xkb-options'],
+                    'org.gnome.desktop.input-sources', 'xkb-options'],
                 capture_output=True, text=True, timeout=5,
             )
         except (subprocess.TimeoutExpired, OSError):
@@ -194,6 +203,31 @@ class XKBOptionsCheck:
         if items:
             options_str = ','.join(items)
             self._analyze_options(options_str, 'gsettings (GNOME)')
+
+    def _check_kde_kxkbrc(self):
+        """Check KDE Plasma's kxkbrc for problematic XKB options."""
+        home = os.path.expanduser('~')
+        config_path = os.path.join(home, '.config', 'kxkbrc')
+        if not os.path.isfile(config_path):
+            return
+
+        try:
+            with open(config_path, 'r') as f:
+                lines = f.readlines()
+        except OSError:
+            return
+
+        in_layout_section = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith('['):
+                in_layout_section = (stripped == '[Layout]')
+                continue
+            if in_layout_section and stripped.startswith('Options='):
+                options_str = stripped.split('=', 1)[1].strip()
+                if options_str:
+                    self._analyze_options(options_str, config_path)
+                break
 
     # ── Analysis ────────────────────────────────────────────────────────
 
@@ -235,32 +269,37 @@ class XKBOptionsCheck:
             print()
             print('  All modifier keys used by Toshy appear to have')
             print('  standard XKB assignments.')
-            print()
-            print(sep)
-            print()
-            return
 
-        print(f'  Result: Found {len(self.findings)} issue(s)!')
-        print()
-        print(thin_sep)
-
-        for i, finding in enumerate(self.findings, 1):
-            print()
-            print(f'  Issue #{i}')
-            print(f'  Severity:     {finding["severity"]}')
-            print(f'  XKB option:   {finding["option"]}')
-            print(f'  Found in:     {finding["source"]}')
-            print(f'  Affected key: {finding["key_name"]}')
-            print(f'  Toshy usage:  {finding["toshy_role"]}')
-            print()
-            self._print_fix_guidance(finding)
+        else:
+            print(f'  Result: Found {len(self.findings)} issue(s)!')
             print()
             print(thin_sep)
 
-        print()
-        print('  To resolve these issues, remove or change the problematic')
-        print('  XKB option(s) listed above. See the fix guidance for each')
-        print('  issue for specific instructions.')
+            for i, finding in enumerate(self.findings, 1):
+                print()
+                print(f'  Issue #{i}')
+                print(f'  Severity:     {finding["severity"]}')
+                print(f'  XKB option:   {finding["option"]}')
+                print(f'  Found in:     {finding["source"]}')
+                print(f'  Affected key: {finding["key_name"]}')
+                print(f'  Toshy usage:  {finding["toshy_role"]}')
+                print()
+                self._print_fix_guidance(finding)
+                print()
+                print(thin_sep)
+
+            print()
+            print('  To resolve these issues, remove or change the problematic')
+            print('  XKB option(s) listed above. See the fix guidance for each')
+            print('  issue for specific instructions.')
+
+        if self.notes:
+            print()
+            print('  Notes:')
+            print()
+            for note in self.notes:
+                print(f'    {note}')
+
         print()
         print(sep)
         print()
@@ -291,6 +330,15 @@ class XKBOptionsCheck:
             print(f'  Fix: Open GNOME Settings > Keyboard, or run:')
             print(f'    gsettings reset org.gnome.desktop.input-sources xkb-options')
             print(f'  Or use GNOME Tweaks to change the Compose key setting.')
+
+        elif 'kxkbrc' in source:
+            print(f'  Fix: Open System Settings > Keyboard > Advanced')
+            print(f'  (or Keybindings) and change or disable the')
+            print(f'  Compose key under "Position of Compose Key".')
+            print(f'  Alternatively, edit the file directly:')
+            print(f'    {source}')
+            print(f'  Remove the \'{option}\' from the Options= line')
+            print(f'  under the [Layout] section.')
 
         else:
             print(f'  Fix: Check your desktop environment keyboard settings')
