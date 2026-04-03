@@ -2113,22 +2113,56 @@ modmap("Cond modmap - Terms - Mac kbd", {
 
 
 
-modmap("Cond modmap - Apple JIS - Eisu", {
-    Key.HANJA:    Key.MUHENKAN,    # 英数 (HANJA/123) → 無変換 (MUHENKAN/94)
-}, when = lambda ctx:
-    cnfg.screen_has_focus and
-    isKBtype('Apple', map='mmap Apple JIS Eisu')(ctx)
-)
+if SESSION_TYPE == 'wayland':
+    # Wayland (GNOME Shell): ibus engine コマンドで Mozc エンジンバリアントを切り替え
+    # GNOME Shell 48 の IBus 統合では Henkan_Mode/Katakana/Zenkaku_Hankaku keysym が
+    # IBus エンジンに転送されないため、keysym ベースの方式は使用できない
+    _ibus_env = {**os.environ, "DBUS_SESSION_BUS_ADDRESS":
+                 f"unix:path=/run/user/{os.getuid()}/bus"}
 
-keymap("Cond keymap - Apple JIS - Kana", {
-    # かな (HANGEUL/122) → [KATAKANA, HENKAN] 二段キー方式
-    # 1. KATAKANA (code 90): IBus enable-unconditional トリガー（エンジン再起動用）
-    # 2. HENKAN (code 92): Mozc InputModeHiragana トリガー（モード切替用）
-    C("HANGEUL"):  [Key.KATAKANA, Key.HENKAN],
-}, when = lambda ctx:
-    cnfg.screen_has_focus and
-    isKBtype('Apple', map='kmap Apple JIS Kana')(ctx)
-)
+    keymap("Cond keymap - Apple JIS - Eisu", {
+        C("HANJA"):  [
+            lambda: subprocess.Popen(
+                ["ibus", "engine", "mozc-off"],
+                stdout=DEVNULL, stderr=DEVNULL, env=_ibus_env,
+            ),
+        ],
+    }, when = lambda ctx:
+        cnfg.screen_has_focus and
+        isKBtype('Apple', map='kmap Apple JIS Eisu')(ctx)
+    )
+
+    keymap("Cond keymap - Apple JIS - Kana", {
+        C("HANGEUL"):  [
+            lambda: subprocess.Popen(
+                ["ibus", "engine", "mozc-on"],
+                stdout=DEVNULL, stderr=DEVNULL, env=_ibus_env,
+            ),
+        ],
+    }, when = lambda ctx:
+        cnfg.screen_has_focus and
+        isKBtype('Apple', map='kmap Apple JIS Kana')(ctx)
+    )
+
+else:
+    # X11: keysym ベースの IME 切り替え（従来方式）
+    # スタンドアロン IBus では Henkan_Mode/Katakana keysym が正しくエンジンに転送される
+    modmap("Cond modmap - Apple JIS - Eisu", {
+        Key.HANJA:    Key.MUHENKAN,    # 英数 (HANJA/123) → 無変換 (MUHENKAN/94)
+    }, when = lambda ctx:
+        cnfg.screen_has_focus and
+        isKBtype('Apple', map='mmap Apple JIS Eisu')(ctx)
+    )
+
+    keymap("Cond keymap - Apple JIS - Kana", {
+        # かな (HANGEUL/122) → [KATAKANA, HENKAN] 二段キー方式
+        # 1. KATAKANA (code 90): IBus enable-unconditional トリガー（エンジン再起動用）
+        # 2. HENKAN (code 92): Mozc InputModeHiragana トリガー（モード切替用）
+        C("HANGEUL"):  [Key.KATAKANA, Key.HENKAN],
+    }, when = lambda ctx:
+        cnfg.screen_has_focus and
+        isKBtype('Apple', map='kmap Apple JIS Kana')(ctx)
+    )
 
 # Suggested location for adding custom modmaps for personal use.
 ###################################################################################################
