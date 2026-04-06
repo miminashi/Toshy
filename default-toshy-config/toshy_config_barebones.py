@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__version__ = '20260313'
+__version__ = '20260404'
 ###############################################################################
 ############################   Welcome to Toshy!   ############################
 ###
@@ -56,14 +56,44 @@ throttle_delays(
     key_post_delay_ms   = 12,      # default: 0 ms, range: 0-150 ms, suggested: 1-100 ms
 )
 
+
+# ─── Devices API Reference ───────────────────────────────────────────────────
+#
+# Use `devices_api()` to control which input devices the keymapper grabs.
+# Run `toshy-devices` to see all available identifiers for connected devices.
+#
+# Both `only_devices` and `ignore_devices` accept lists of strings.
+# Each string can be any of the following match types:
+#
+#   'AT Translated Set 2 keyboard'                          # device name
+#   '/dev/input/event3'                                     # device path (volatile across reboots)
+#   '/dev/input/by-id/usb-Example_Keyboard-event-kbd'       # by-id symlink (stable, USB/BT only)
+#   'b0003:v1234:p5678:e0001:nab12cd34'                     # synthetic ID (stable, any device)
+#   'b0003:v1234:p5678:e0001:nab12cd34@usb-0000:00:14.0'    # synthetic ID with bus path (stable)
+#   'AA:BB:CC:DD:EE:FF'                                     # device uniq (stable, rarely populated)
+#
+# NOTE: Device paths like /dev/input/eventN can change across reboots or
+# when devices are unplugged and reconnected. Prefer device name, by-id
+# path, or synthetic ID for entries that should survive across reboots.
+
 devices_api(
-    # Only the specified devices will be "grabbed" and watched for during
-    # device connections/disconnections.
+
+    # Only the specified devices will be "grabbed" and watched for
+    # during device connections/disconnections. When empty or omitted,
+    # the keymapper autodetects all keyboard-like devices.
     only_devices = [
-        # 'Example Disconnected Keyboard',
-        # 'Example Connected Keyboard',
-    ]
+        # 'Example Keyboard Name',
+    ],
+
+    # Devices to never grab, even if they match autodetection or the
+    # allowlist above. Useful for combo keyboard/mouse devices that
+    # cause pointer stutter when grabbed, or media control devices
+    # that do not need remapping.
+    ignore_devices = [
+        # 'Example Wireless Receiver Mouse',
+    ],
 )
+
 
 ###########################################################
 # Use this ONLY if you want near zero CPU usage for held,
